@@ -1,0 +1,6 @@
+{
+  "name": "coachbyte",
+  "required_secrets": ["DATABASE_URL"],
+  "auto_update": false
+}
+

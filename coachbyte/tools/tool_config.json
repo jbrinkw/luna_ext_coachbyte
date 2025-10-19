@@ -1,0 +1,43 @@
+{
+  "COACHBYTE_UPDATE_new_daily_plan": {
+    "enabled_in_mcp": true,
+    "passthrough": false
+  },
+  "COACHBYTE_GET_today_plan": {
+    "enabled_in_mcp": true,
+    "passthrough": false
+  },
+  "COACHBYTE_ACTION_complete_next_set": {
+    "enabled_in_mcp": true,
+    "passthrough": false
+  },
+  "COACHBYTE_ACTION_log_completed_set": {
+    "enabled_in_mcp": true,
+    "passthrough": false
+  },
+  "COACHBYTE_UPDATE_summary": {
+    "enabled_in_mcp": true,
+    "passthrough": false
+  },
+  "COACHBYTE_GET_recent_history": {
+    "enabled_in_mcp": true,
+    "passthrough": false
+  },
+  "COACHBYTE_UPDATE_weekly_split_day": {
+    "enabled_in_mcp": true,
+    "passthrough": false
+  },
+  "COACHBYTE_GET_weekly_split": {
+    "enabled_in_mcp": true,
+    "passthrough": false
+  },
+  "COACHBYTE_ACTION_set_timer": {
+    "enabled_in_mcp": true,
+    "passthrough": false
+  },
+  "COACHBYTE_GET_timer": {
+    "enabled_in_mcp": true,
+    "passthrough": false
+  }
+}
+

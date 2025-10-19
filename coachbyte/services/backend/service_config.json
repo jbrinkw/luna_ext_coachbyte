@@ -1,0 +1,7 @@
+{
+  "name": "coachbyte_backend",
+  "requires_port": true,
+  "health_check": "/api/days",
+  "restart_on_failure": true
+}
+
