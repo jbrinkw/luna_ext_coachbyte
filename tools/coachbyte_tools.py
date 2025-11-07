@@ -54,39 +54,27 @@ to advance through the planned workout queue."""
 # Helper functions
 def _get_connection():
     """Get database connection from environment variables."""
-    url = os.getenv("DATABASE_URL")
-    if isinstance(url, str) and url.strip():
-        return psycopg2.connect(url)
-    
-    # Fallback to individual connection parameters
-    host = os.getenv("PGHOST") or os.getenv("DB_HOST")
-    port_str = os.getenv("PGPORT") or os.getenv("DB_PORT")
-    dbname = os.getenv("PGDATABASE") or os.getenv("DB_NAME")
-    user = os.getenv("PGUSER") or os.getenv("DB_USER")
-    password = os.getenv("PGPASSWORD") or os.getenv("DB_PASSWORD")
-    
-    if not all([host, dbname, user, password]):
-        raise RuntimeError("Database configuration missing. Set DATABASE_URL environment variable.")
-    
+    # Get required environment variables
+    host = os.getenv("DB_HOST")
+    port_str = os.getenv("DB_PORT")
+    dbname = os.getenv("DB_NAME")
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
+
+    # Validate required variables
+    required_vars = {"DB_HOST": host, "DB_NAME": dbname, "DB_USER": user, "DB_PASSWORD": password, "DB_PORT": port_str}
+    missing = [k for k, v in required_vars.items() if not v]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+
     conn = psycopg2.connect(
         host=host,
-        port=int(port_str) if isinstance(port_str, str) and port_str.strip() else 5432,
+        port=int(port_str),
         dbname=dbname,
         user=user,
         password=password,
     )
-    
-    # Optional: set search_path if DB_SCHEMA is provided
-    schema = os.getenv("DB_SCHEMA")
-    if isinstance(schema, str) and schema.strip():
-        try:
-            safe = schema.strip().replace(";", "")
-            cur = conn.cursor()
-            cur.execute(f"SET search_path TO {safe}")
-            cur.close()
-        except Exception:
-            pass
-    
+
     return conn
 
 

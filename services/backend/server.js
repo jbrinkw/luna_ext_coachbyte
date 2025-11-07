@@ -2,8 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-// Load env from Luna repo root (4 levels up from this file)
-const repoRoot = path.resolve(__dirname, '..', '..', '..', '..');
+// Load env from extension root (2 levels up from this file)
+const repoRoot = path.resolve(__dirname, '..', '..');
 require('dotenv').config({ path: path.join(repoRoot, '.env') });
 
 const db = require('./db');

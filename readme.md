@@ -13,11 +13,17 @@ CoachByte is a comprehensive workout tracking and planning extension for Luna.
 
 ## Requirements
 
-This extension requires a PostgreSQL database. Set the `DATABASE_URL` environment variable in your `.env` file:
+This extension requires a PostgreSQL database. Set the following environment variables in your `.env` file:
 
 ```
-DATABASE_URL=postgresql://user:password@host:port/database
+DB_HOST=
+DB_PORT=
+DB_NAME=
+DB_USER=
+DB_PASSWORD=
 ```
+
+**Note:** All five environment variables are required. The database tables will be automatically created when the backend service starts.
 
 ## Components
 

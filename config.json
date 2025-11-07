@@ -1,0 +1,9 @@
+{
+  "name": "coachbyte",
+  "required_secrets": ["DB_HOST", "DB_NAME", "DB_PASSWORD", "DB_PORT", "DB_USER"],
+  "auto_update": false,
+  "version": "2025-01-07",
+  "enabled": true,
+  "source": "local"
+}
+

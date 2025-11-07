@@ -14,41 +14,30 @@ function getTodayInEst() {
   return `${partValue('year')}-${partValue('month')}-${partValue('day')}`;
 }
 
-// Database configuration using DATABASE_URL or individual parameters
-let pool;
+// Database configuration using required environment variables
+const dbConfig = {
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT),
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+};
 
-if (process.env.DATABASE_URL) {
-  // Use DATABASE_URL if available (preferred)
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
-  console.log('[CoachByte DB] Using DATABASE_URL');
-} else {
-  // Fallback to individual parameters
-  const pick = (...keys) => {
-    for (const k of keys) {
-      if (process.env[k] !== undefined) return process.env[k];
-    }
-    return undefined;
-  };
-
-  const dbConfig = {
-    host: String(pick('DB_HOST', 'PGHOST', 'POSTGRES_HOST') || '127.0.0.1'),
-    port: Number(pick('DB_PORT', 'PGPORT', 'POSTGRES_PORT') || 5432),
-    database: String(pick('DB_NAME', 'PGDATABASE', 'POSTGRES_DB') || 'workout_tracker'),
-    user: String(pick('DB_USER', 'PGUSER', 'POSTGRES_USER') || 'postgres'),
-    password: String(pick('DB_PASSWORD', 'PGPASSWORD', 'POSTGRES_PASSWORD') || ''),
-  };
-
-  console.log('[CoachByte DB] Using config:', {
-    host: dbConfig.host,
-    port: dbConfig.port,
-    database: dbConfig.database,
-    user: dbConfig.user,
-  });
-  
-  pool = new Pool(dbConfig);
+// Validate required environment variables
+const requiredVars = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_PORT'];
+const missingVars = requiredVars.filter(v => !process.env[v]);
+if (missingVars.length > 0) {
+  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
 }
+
+console.log('[CoachByte DB] Using config:', {
+  host: dbConfig.host,
+  port: dbConfig.port,
+  database: dbConfig.database,
+  user: dbConfig.user,
+});
+
+const pool = new Pool(dbConfig);
 
 // Optional schema support
 const schema = process.env.DB_SCHEMA;
