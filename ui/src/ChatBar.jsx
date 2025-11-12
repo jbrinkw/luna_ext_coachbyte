@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { API_BASE } from './api';
 
 export default function ChatBar() {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -40,7 +41,7 @@ export default function ChatBar() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input.trim() })
@@ -84,7 +85,7 @@ export default function ChatBar() {
   const clearChat = async () => {
     try {
       // Clear database memory
-      await fetch('/api/chat/memory', {
+      await fetch(`${API_BASE}/chat/memory`, {
         method: 'DELETE'
       });
       

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { calculatePlates, formatWeightAndPlates } from './utils/weightCalc';
+import { API_BASE } from './api';
 
 export default function DayDetail({ id, onBack, onDelete }) {
   const [data, setData] = useState(null);
@@ -21,7 +22,7 @@ export default function DayDetail({ id, onBack, onDelete }) {
 
   const loadTimer = async () => {
     try {
-      const response = await fetch('/api/timer');
+      const response = await fetch(`${API_BASE}/timer`);
       if (response.ok) {
         const timer = await response.json();
         setTimerStatus(timer);
@@ -38,7 +39,7 @@ export default function DayDetail({ id, onBack, onDelete }) {
     }
     
     try {
-      const response = await fetch(`/api/days/${id}`);
+      const response = await fetch(`${API_BASE}/days/${id}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const newData = await response.json();
       
@@ -103,7 +104,7 @@ export default function DayDetail({ id, onBack, onDelete }) {
   if (!data) return <div><button onClick={onBack}>Back</button><p>No data found for this day.</p></div>;
 
   const addPlan = async () => {
-    await fetch(`/api/days/${id}/plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newPlan) });
+    await fetch(`${API_BASE}/days/${id}/plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newPlan) });
     setNewPlan({ exercise: '', reps: 0, load: 0, rest: 60, order_num: 1 });
     load(false); // Don't show loading spinner for user-initiated actions
   };
@@ -114,7 +115,7 @@ export default function DayDetail({ id, onBack, onDelete }) {
     setIsCompleting(true);
     try {
       // Add to completed sets (this will link to the planned set)
-      await fetch(`/api/days/${id}/completed`, { 
+      await fetch(`${API_BASE}/days/${id}/completed`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({
@@ -142,14 +143,14 @@ export default function DayDetail({ id, onBack, onDelete }) {
   };
 
   const updateSummary = async (summary) => {
-    await fetch(`/api/days/${id}/summary`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ summary }) });
+    await fetch(`${API_BASE}/days/${id}/summary`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ summary }) });
   };
 
   const updatePlan = async (p) => {
-    await fetch(`/api/plan/${p.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+    await fetch(`${API_BASE}/plan/${p.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
   };
-  const deletePlan = async (pid) => { await fetch(`/api/plan/${pid}`, { method: 'DELETE' }); load(false); };
-  const deleteComp = async (cid) => { await fetch(`/api/completed/${cid}`, { method: 'DELETE' }); load(false); };
+  const deletePlan = async (pid) => { await fetch(`${API_BASE}/plan/${pid}`, { method: 'DELETE' }); load(false); };
+  const deleteComp = async (cid) => { await fetch(`${API_BASE}/completed/${cid}`, { method: 'DELETE' }); load(false); };
 
   const handlePlanChange = (idx, field, value) => {
     const upd = { ...data.plan[idx], [field]: value };
@@ -181,7 +182,7 @@ export default function DayDetail({ id, onBack, onDelete }) {
     } else {
       // Second click - actually delete
       try {
-        await fetch(`/api/days/${id}`, { method: 'DELETE' });
+        await fetch(`${API_BASE}/days/${id}`, { method: 'DELETE' });
         onBack(); // Navigate back to the list
         if (onDelete) {
           onDelete(id); // Update the parent component's state

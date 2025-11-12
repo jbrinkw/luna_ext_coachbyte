@@ -6,10 +6,12 @@ weekly splits, and setting rest timers.
 
 from __future__ import annotations
 
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Optional, Tuple
 from datetime import date, timedelta, datetime, timezone
+from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field
 import os
+import sys
 import json
 import subprocess
 import uuid
@@ -20,7 +22,7 @@ import psycopg2.extras
 # Load .env from repo root (two levels up from this file)
 try:
     from dotenv import load_dotenv
-    _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     _env_path = os.path.join(_repo_root, ".env")
     load_dotenv(_env_path)
 except Exception:
@@ -30,6 +32,36 @@ except Exception:
 # Constants
 MAX_LOAD = 2000
 MAX_REPS = 100
+TIME_ZONE_NAME = os.getenv("DAY_TIME_ZONE", "America/New_York")
+try:
+    LOCAL_TZ = ZoneInfo(TIME_ZONE_NAME)
+except Exception:
+    LOCAL_TZ = ZoneInfo("America/New_York")
+DAY_START_TIME = os.getenv("DAY_START_TIME", "00:00")
+
+
+def _parse_day_start_minutes(value: str) -> int:
+    if not value or not isinstance(value, str):
+        return 0
+    raw = value.strip()
+    if not raw:
+        return 0
+    try:
+        if ":" in raw:
+            hours_str, minutes_str = raw.split(":", 1)
+        elif raw.isdigit() and 3 <= len(raw) <= 4:
+            padded = raw.zfill(4)
+            hours_str, minutes_str = padded[:2], padded[2:]
+        else:
+            return 0
+        hours = max(0, min(23, int(hours_str)))
+        minutes = max(0, min(59, int(minutes_str)))
+        return hours * 60 + minutes
+    except (TypeError, ValueError):
+        return 0
+
+
+DAY_START_MINUTES = _parse_day_start_minutes(DAY_START_TIME)
 
 DAY_MAP = {
     "sunday": 0,
@@ -91,7 +123,7 @@ def _get_exercise_id(conn, name: str) -> int:
 
 def _get_today_log_id(conn):
     """Get or create today's daily log ID."""
-    today = date.today().isoformat()
+    today = _today_est_iso()
     cur = conn.cursor()
     cur.execute("SELECT id FROM daily_logs WHERE log_date = %s", (today,))
     row = cur.fetchone()
@@ -114,7 +146,8 @@ class PlanSetItem(BaseModel):
 
 
 class COACHBYTE_UPDATE_NewDailyPlanArgs(BaseModel):
-    items: List[PlanSetItem] = Field(..., description="List of planned sets")
+    items: list[PlanSetItem] = Field(..., description="List of planned sets")
+COACHBYTE_UPDATE_NewDailyPlanArgs.model_rebuild()
 
 
 class COACHBYTE_ACTION_CompleteNextSetArgs(BaseModel):
@@ -148,7 +181,7 @@ class SplitSetItem(BaseModel):
 
 class COACHBYTE_UPDATE_WeeklySplitDayArgs(BaseModel):
     day: str = Field(..., description="Day name (monday, tuesday, etc)")
-    items: List[SplitSetItem] = Field(..., description="List of sets for this day")
+    items: list[SplitSetItem] = Field(..., description="List of sets for this day")
 
 
 class COACHBYTE_GET_WeeklySplitArgs(BaseModel):
@@ -157,10 +190,19 @@ class COACHBYTE_GET_WeeklySplitArgs(BaseModel):
 
 class COACHBYTE_ACTION_SetTimerArgs(BaseModel):
     minutes: int = Field(..., ge=1, le=180, description="Timer duration in minutes")
+PlanSetItem.model_rebuild()
+COACHBYTE_ACTION_CompleteNextSetArgs.model_rebuild()
+COACHBYTE_ACTION_LogCompletedSetArgs.model_rebuild()
+COACHBYTE_ACTION_SetTimerArgs.model_rebuild()
+COACHBYTE_UPDATE_SummaryArgs.model_rebuild()
+COACHBYTE_GET_RecentHistoryArgs.model_rebuild()
+SplitSetItem.model_rebuild()
+COACHBYTE_UPDATE_WeeklySplitDayArgs.model_rebuild()
+COACHBYTE_GET_WeeklySplitArgs.model_rebuild()
 
 
 # Tool functions
-def COACHBYTE_UPDATE_new_daily_plan(items: List[Dict[str, Any]]) -> Tuple[bool, str]:
+def COACHBYTE_UPDATE_new_daily_plan(items: list[dict[str, Any]]) -> Tuple[bool, str]:
     """Create today's daily workout plan with a list of planned sets.
     Example Prompt: Make a plan for today: bench press 10x135 at order 1; squat 8x185 at order 2.
     Example Response: {"success": true, "message": "planned 2 sets for today"}
@@ -181,7 +223,7 @@ def COACHBYTE_UPDATE_new_daily_plan(items: List[Dict[str, Any]]) -> Tuple[bool, 
             min_order = result.get("min_order") if result.get("min_order") is not None else 0
             max_order = result.get("max_order") if result.get("max_order") is not None else 0
             
-            details: List[str] = []
+            details: list[str] = []
             for item in args.items:
                 exercise_id = _get_exercise_id(conn, item.exercise)
                 
@@ -261,7 +303,8 @@ def COACHBYTE_ACTION_complete_next_set(exercise: Optional[str] = None, reps: Opt
                     SELECT ps.id, ps.exercise_id, e.name as exercise, ps.reps, ps.load, ps.rest, ps.order_num
                     FROM planned_sets ps
                     JOIN exercises e ON ps.exercise_id = e.id
-                    WHERE ps.log_id = %s AND e.name = %s
+                    LEFT JOIN completed_sets cs ON ps.id = cs.planned_set_id
+                    WHERE ps.log_id = %s AND e.name = %s AND cs.id IS NULL
                     ORDER BY ps.order_num
                     LIMIT 1
                     """,
@@ -273,7 +316,8 @@ def COACHBYTE_ACTION_complete_next_set(exercise: Optional[str] = None, reps: Opt
                     SELECT ps.id, ps.exercise_id, e.name as exercise, ps.reps, ps.load, ps.rest, ps.order_num
                     FROM planned_sets ps
                     JOIN exercises e ON ps.exercise_id = e.id
-                    WHERE ps.log_id = %s
+                    LEFT JOIN completed_sets cs ON ps.id = cs.planned_set_id
+                    WHERE ps.log_id = %s AND cs.id IS NULL
                     ORDER BY ps.order_num
                     LIMIT 1
                     """,
@@ -287,31 +331,45 @@ def COACHBYTE_ACTION_complete_next_set(exercise: Optional[str] = None, reps: Opt
             
             actual_reps = args.reps if args.reps is not None else planned_set["reps"]
             actual_load = args.load if args.load is not None else planned_set["load"]
-            
+
+            # Link completed set to planned set instead of deleting the planned set
             cur.execute(
-                "INSERT INTO completed_sets (log_id, exercise_id, reps_done, load_done, completed_at) VALUES (%s, %s, %s, %s, %s)",
-                (log_id, planned_set["exercise_id"], actual_reps, actual_load, datetime.now(timezone.utc)),
+                "INSERT INTO completed_sets (log_id, exercise_id, planned_set_id, reps_done, load_done, completed_at) VALUES (%s, %s, %s, %s, %s, %s)",
+                (log_id, planned_set["exercise_id"], planned_set["id"], actual_reps, actual_load, datetime.now(timezone.utc)),
             )
-            cur.execute("DELETE FROM planned_sets WHERE id = %s", (planned_set["id"],))
+            # Don't delete the planned set - it will be filtered out by the backend when linked to a completed set
             conn.commit()
             
+            # Set database-backed rest timer for the next set
             rest_time = planned_set.get("rest", 60) or 60
             rest_info = ""
             if rest_time > 0:
                 try:
-                    # Timer script is in ui/tools relative to extension root
-                    ext_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-                    timer_script = os.path.join(ext_root, "ui", "tools", "timer_temp.py")
-                    if os.path.exists(timer_script):
-                        result = subprocess.run(
-                            ["python", timer_script, "set", str(rest_time), "seconds"],
-                            capture_output=True,
-                            text=True,
-                            cwd=os.path.dirname(timer_script)
+                    # Get the next planned set to determine rest time
+                    cur.execute(
+                        """
+                        SELECT ps.rest
+                        FROM planned_sets ps
+                        LEFT JOIN completed_sets cs ON ps.id = cs.planned_set_id
+                        WHERE ps.log_id = %s AND cs.id IS NULL
+                        ORDER BY ps.order_num
+                        LIMIT 1
+                        """,
+                        (log_id,),
+                    )
+                    next_set = cur.fetchone()
+                    if next_set and next_set["rest"]:
+                        # Set timer in database
+                        cur.execute("DELETE FROM timer")
+                        cur.execute(
+                            "INSERT INTO timer (timer_end_time) VALUES (CURRENT_TIMESTAMP + (%s || ' seconds')::interval)",
+                            (str(next_set["rest"]),)
                         )
-                        if result.returncode == 0:
-                            rest_info = f" Rest timer set for {rest_time} seconds."
-                except Exception:
+                        conn.commit()
+                        rest_info = f" Rest timer set for {next_set['rest']} seconds."
+                except Exception as timer_error:
+                    # Don't fail the main operation if timer setting fails
+                    print(f"[CoachByte] Timer error: {timer_error}")
                     pass
             
             result_msg = f"Completed {planned_set['exercise']}: {actual_reps} reps @ {actual_load} load"
@@ -385,7 +443,7 @@ def COACHBYTE_GET_recent_history(days: int) -> Tuple[bool, str]:
         conn = _get_connection()
         try:
             cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            start = date.today() - timedelta(days=args.days)
+            start = _today_est_date() - timedelta(days=args.days)
             cur.execute(
                 """
                 SELECT dl.log_date, e.name as exercise, ps.reps, ps.load, cs.reps_done, cs.load_done
@@ -406,7 +464,7 @@ def COACHBYTE_GET_recent_history(days: int) -> Tuple[bool, str]:
         return (False, f"Error getting history: {str(e)}")
 
 
-def COACHBYTE_UPDATE_weekly_split_day(day: str, items: List[Dict[str, Any]]) -> Tuple[bool, str]:
+def COACHBYTE_UPDATE_weekly_split_day(day: str, items: list[dict[str, Any]]) -> Tuple[bool, str]:
     """Replace the weekly split plan for a specific day with provided sets.
     Example Prompt: Set Monday split to bench 5x at 80% 1RM and squat 10x185.
     Example Response: {"success": true, "message": "split updated for monday with 2 sets"}
@@ -490,7 +548,7 @@ def COACHBYTE_ACTION_set_timer(minutes: int) -> Tuple[bool, str]:
             return (False, "Timer script not found")
         
         result = subprocess.run(
-            ["python", timer_script, "set", str(args.minutes)],
+            [sys.executable, timer_script, "set", str(args.minutes)],
             capture_output=True,
             text=True,
             cwd=os.path.dirname(timer_script)
@@ -519,7 +577,7 @@ def COACHBYTE_GET_timer() -> Tuple[bool, str]:
             return (False, "Timer script not found")
         
         result = subprocess.run(
-            ["python", timer_script, "get"],
+            [sys.executable, timer_script, "get"],
             capture_output=True,
             text=True,
             cwd=os.path.dirname(timer_script)
@@ -551,4 +609,14 @@ TOOLS = [
     COACHBYTE_ACTION_set_timer,
     COACHBYTE_GET_timer,
 ]
+def _today_est_date() -> date:
+    """Return today's date using configured timezone and day start boundary."""
+    now = datetime.now(tz=LOCAL_TZ)
+    minutes_since_midnight = now.hour * 60 + now.minute
+    if minutes_since_midnight < DAY_START_MINUTES:
+        now = now - timedelta(days=1)
+    return now.date()
 
+
+def _today_est_iso() -> str:
+    return _today_est_date().isoformat()

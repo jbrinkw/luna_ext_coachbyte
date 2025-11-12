@@ -2,16 +2,60 @@ require('dotenv').config();
 const { Pool } = require('pg');
 const { format } = require('date-fns');
 
+const DAY_TIME_ZONE = process.env.DAY_TIME_ZONE || 'America/New_York';
+const DAY_START_TIME = process.env.DAY_START_TIME || '00:00';
+
+function parseDayStartMinutes(value) {
+  if (!value || typeof value !== 'string') return 0;
+  const raw = value.trim();
+  if (!raw) return 0;
+  let hoursStr;
+  let minutesStr;
+  if (raw.includes(':')) {
+    [hoursStr, minutesStr] = raw.split(':', 2);
+  } else if (/^\d{3,4}$/.test(raw)) {
+    const padded = raw.padStart(4, '0');
+    hoursStr = padded.slice(0, 2);
+    minutesStr = padded.slice(2);
+  } else {
+    return 0;
+  }
+  const hours = Math.min(Math.max(parseInt(hoursStr, 10) || 0, 0), 23);
+  const minutes = Math.min(Math.max(parseInt(minutesStr, 10) || 0, 0), 59);
+  return hours * 60 + minutes;
+}
+
+const DAY_START_MINUTES = parseDayStartMinutes(DAY_START_TIME);
+
 function getTodayInEst() {
-  const estFormatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
+  const tzFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: DAY_TIME_ZONE,
     year: 'numeric',
     month: '2-digit',
-    day: '2-digit'
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   });
-  const parts = estFormatter.formatToParts(new Date());
-  const partValue = (type) => parts.find(p => p.type === type).value;
-  return `${partValue('year')}-${partValue('month')}-${partValue('day')}`;
+  const parts = tzFormatter.formatToParts(new Date());
+  const partValue = (type, fallback = '0') => {
+    const part = parts.find(p => p.type === type);
+    return part ? part.value : fallback;
+  };
+  const pad = (num) => String(num).padStart(2, '0');
+
+  const year = Number(partValue('year'));
+  const month = Number(partValue('month'));
+  const day = Number(partValue('day'));
+  const hour = Number(partValue('hour'));
+  const minute = Number(partValue('minute'));
+
+  let dateUtc = new Date(Date.UTC(year, (month || 1) - 1, day || 1));
+  const minutesSinceMidnight = hour * 60 + minute;
+  if (minutesSinceMidnight < DAY_START_MINUTES) {
+    dateUtc.setUTCDate(dateUtc.getUTCDate() - 1);
+  }
+  return `${dateUtc.getUTCFullYear()}-${pad(dateUtc.getUTCMonth() + 1)}-${pad(dateUtc.getUTCDate())}`;
 }
 
 // Database configuration using required environment variables

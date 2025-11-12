@@ -40,6 +40,8 @@ desktop.ini
 *.tmp
 *.temp
 .cache/
+**/temp_*.json
+ui/tools/temp_timer.json
 
 # Database
 *.db
@@ -49,6 +51,11 @@ desktop.ini
 # Package lock files (optional, uncomment if needed)
 # package-lock.json
 # yarn.lock
+pnpm-lock.yaml
+
+# Backup files
+*.backup
+**/*.backup
 
 
 

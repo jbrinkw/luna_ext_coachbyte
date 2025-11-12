@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { API_BASE } from './api';
 
 // Move TrackedPRSection outside to prevent re-creation on every render
 const TrackedPRSection = ({ 
@@ -128,7 +129,7 @@ export default function PRTracker({ onBack }) {
   const loadPRs = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/prs');
+      const response = await fetch(`${API_BASE}/prs`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       setPRs(processPRs(data));
@@ -143,7 +144,7 @@ export default function PRTracker({ onBack }) {
 
   const loadTrackedExercises = async () => {
     try {
-      const response = await fetch('/api/tracked-exercises');
+      const response = await fetch(`${API_BASE}/tracked-exercises`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       setTrackedExercises(data);
@@ -154,7 +155,7 @@ export default function PRTracker({ onBack }) {
 
   const addTrackedExercise = async () => {
     if (!newTrackedExercise.trim()) return;
-    await fetch('/api/tracked-exercises', {
+    await fetch(`${API_BASE}/tracked-exercises`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ exercise: newTrackedExercise.trim() })
@@ -165,7 +166,7 @@ export default function PRTracker({ onBack }) {
   };
 
   const removeTrackedExercise = async (exercise) => {
-    await fetch('/api/tracked-exercises', {
+    await fetch(`${API_BASE}/tracked-exercises`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ exercise })

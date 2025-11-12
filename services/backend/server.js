@@ -13,6 +13,22 @@ console.log('[CoachByte Backend] Starting...');
 app.use(cors());
 app.use(express.json());
 
+// Support proxies that strip the /api prefix (some deployments route /api/coachbyte to this service)
+app.use((req, res, next) => {
+  const resetUrl = (newUrl) => {
+    req.url = newUrl;
+    req._parsedUrl = undefined;
+  };
+
+  if (req.path.startsWith('/api/coachbyte/')) {
+    resetUrl(`/api${req.url.slice('/api/coachbyte'.length)}`);
+  } else if (!req.path.startsWith('/api/')) {
+    const suffix = req.url.startsWith('/') ? req.url : `/${req.url}`;
+    resetUrl(`/api${suffix}`);
+  }
+  next();
+});
+
 // Initialize database tables on startup (idempotent)
 (async () => {
   try {
@@ -342,4 +358,3 @@ const HOST = '127.0.0.1';
 app.listen(PORT, HOST, () => {
   console.log(`[CoachByte Backend] Server running on http://${HOST}:${PORT}`);
 });
-

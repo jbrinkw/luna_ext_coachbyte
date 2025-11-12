@@ -1,6 +1,10 @@
 #!/bin/bash
-PORT=$1
+# Start CoachByte UI on specified port
+PORT=${1:-5200}
+export PORT=$PORT
 
 # Start Vite dev server on the provided port
-npx vite --port $PORT --host 127.0.0.1
+# NOTE: Backend API calls go through Caddy at /api/coachbyte
+# (no need to export backend port - Caddy handles routing)
+npm run dev
 

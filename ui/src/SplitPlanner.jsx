@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { API_BASE } from './api';
 
 export default function SplitPlanner({ onBack }) {
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -11,7 +12,7 @@ export default function SplitPlanner({ onBack }) {
 
   const loadSplit = async () => {
     try {
-      const resp = await fetch('/api/split');
+      const resp = await fetch(`${API_BASE}/split`);
       const data = await resp.json();
       const grouped = Object.fromEntries(dayNames.map((_,i)=>[i,[]]));
       data.forEach(row => {
@@ -20,7 +21,7 @@ export default function SplitPlanner({ onBack }) {
       setSplit(grouped);
       // Load split notes
       try {
-        const nresp = await fetch('/api/split/notes');
+        const nresp = await fetch(`${API_BASE}/split/notes`);
         if (nresp.ok) {
           const ndata = await nresp.json();
           setSplitNotes(ndata.notes || '');
@@ -42,7 +43,7 @@ export default function SplitPlanner({ onBack }) {
     const copy = { ...split };
     copy[day][idx] = upd;
     setSplit(copy);
-    await fetch(`/api/split/plan/${upd.id}`, {
+    await fetch(`${API_BASE}/split/plan/${upd.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(upd)
@@ -51,7 +52,7 @@ export default function SplitPlanner({ onBack }) {
 
   const addSet = async (day) => {
     const payload = newSets[day];
-    await fetch(`/api/split/${day}`, {
+    await fetch(`${API_BASE}/split/${day}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -61,7 +62,7 @@ export default function SplitPlanner({ onBack }) {
   };
 
   const deleteSet = async (day, id) => {
-    await fetch(`/api/split/plan/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE}/split/plan/${id}`, { method: 'DELETE' });
     loadSplit();
   };
 
@@ -173,7 +174,7 @@ export default function SplitPlanner({ onBack }) {
           onBlur={async ()=>{
             try {
               setNotesSaving(true);
-              await fetch('/api/split/notes', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ notes: splitNotes })});
+              await fetch(`${API_BASE}/split/notes`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ notes: splitNotes })});
             } catch (e) {
               console.error('Error saving split notes:', e);
             } finally {

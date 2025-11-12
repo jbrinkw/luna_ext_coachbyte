@@ -1,0 +1,13 @@
+{
+  "name": "api",
+  "requires_port": true,
+  "health_check": "/health",
+  "restart_on_failure": true,
+  "public_exposure": {
+    "enabled": true,
+    "require_api_key": true,
+    "route_prefix": "/api/coachbyte-public",
+    "strip_prefix": true,
+    "cors_enabled": true
+  }
+}

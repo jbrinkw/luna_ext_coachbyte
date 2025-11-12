@@ -1,10 +1,63 @@
 import React, { useEffect, useState } from 'react';
 import DayDetail from './DayDetail';
-import ChatBar from './ChatBar';
 import PRTracker from './PRTracker';
 import SplitPlanner from './SplitPlanner';
 import EditSplitPage from './EditSplitPage';
 import { format, parseISO } from 'date-fns';
+import { API_BASE } from './api';
+
+const DAY_START_TIME = import.meta.env.DAY_START_TIME || '00:00';
+const DAY_TIME_ZONE = import.meta.env.DAY_TIME_ZONE || 'America/New_York';
+
+function parseDayStartMinutes(value) {
+  if (!value || typeof value !== 'string') return 0;
+  const raw = value.trim();
+  if (!raw) return 0;
+  let hoursStr;
+  let minutesStr;
+  if (raw.includes(':')) {
+    [hoursStr, minutesStr] = raw.split(':', 2);
+  } else if (/^\d{3,4}$/.test(raw)) {
+    const padded = raw.padStart(4, '0');
+    hoursStr = padded.slice(0, 2);
+    minutesStr = padded.slice(2);
+  } else {
+    return 0;
+  }
+  const hours = Math.min(Math.max(parseInt(hoursStr, 10) || 0, 0), 23);
+  const minutes = Math.min(Math.max(parseInt(minutesStr, 10) || 0, 0), 59);
+  return hours * 60 + minutes;
+}
+
+const DAY_START_MINUTES = parseDayStartMinutes(DAY_START_TIME);
+
+function getCurrentDayIso() {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: DAY_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(new Date());
+  const lookup = (type) => parts.find((p) => p.type === type)?.value ?? '0';
+  const pad = (num) => String(num).padStart(2, '0');
+
+  const year = Number(lookup('year'));
+  const month = Number(lookup('month'));
+  const day = Number(lookup('day'));
+  const hour = Number(lookup('hour'));
+  const minute = Number(lookup('minute'));
+
+  let base = new Date(Date.UTC(year, (month || 1) - 1, day || 1));
+  const minutesSinceMidnight = hour * 60 + minute;
+  if (minutesSinceMidnight < DAY_START_MINUTES) {
+    base.setUTCDate(base.getUTCDate() - 1);
+  }
+  return `${base.getUTCFullYear()}-${pad(base.getUTCMonth() + 1)}-${pad(base.getUTCDate())}`;
+}
 
 export default function App() {
   const [days, setDays] = useState([]);
@@ -14,10 +67,21 @@ export default function App() {
   const [showPRTracker, setShowPRTracker] = useState(false);
   const [showSplitPlanner, setShowSplitPlanner] = useState(false);
   const [showEditSplitPage, setShowEditSplitPage] = useState(false);
+  const [creatingDay, setCreatingDay] = useState(false);
+  const [createDayError, setCreateDayError] = useState(null);
+
+  const todayIso = getCurrentDayIso();
+  const hasTodayEntry = days.some((day) => {
+    if (!day?.log_date) return false;
+    if (day.log_date.includes('T')) {
+      return day.log_date.split('T')[0] === todayIso;
+    }
+    return day.log_date === todayIso;
+  });
 
   const loadDays = async () => {
     try {
-      const response = await fetch('/api/days');
+      const response = await fetch(`${API_BASE}/days`);
       const data = await response.json();
       
       // Update days and track last updated time
@@ -56,9 +120,32 @@ export default function App() {
   };
 
   const deleteDay = async (id) => {
-    await fetch(`/api/days/${id}`, { method: 'DELETE' });
+    await fetch(`${API_BASE}/days/${id}`, { method: 'DELETE' });
     setDays(days.filter(d => d.id !== id));
     if (selected === id) setSelected(null);
+  };
+
+  const createTodayDay = async () => {
+    if (creatingDay) return;
+    setCreatingDay(true);
+    setCreateDayError(null);
+    try {
+      const response = await fetch(`${API_BASE}/days`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: todayIso })
+      });
+      if (!response.ok) {
+        const details = await response.text();
+        throw new Error(details || 'Failed to create day');
+      }
+      await loadDays();
+    } catch (error) {
+      console.error('Error creating today\'s day:', error);
+      setCreateDayError(error.message || 'Unable to create today\'s entry.');
+    } finally {
+      setCreatingDay(false);
+    }
   };
 
   const handleBack = () => {
@@ -196,6 +283,32 @@ export default function App() {
     marginLeft: '10px'
   };
 
+  const createDayBannerStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px 20px',
+    borderRadius: '8px',
+    border: '1px solid #ffe599',
+    backgroundColor: '#fff8e1',
+    marginBottom: '20px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
+  };
+
+  const createDayButtonStyle = {
+    padding: '10px 18px',
+    backgroundColor: '#ff9800',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: creatingDay ? 'not-allowed' : 'pointer',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    opacity: creatingDay ? 0.7 : 1
+  };
+
+  const shouldShowCreateToday = !loading && !hasTodayEntry;
+
   const mainView = (
     <div>
       <div style={headerStyle}>
@@ -216,6 +329,31 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      {shouldShowCreateToday && (
+        <div style={createDayBannerStyle}>
+          <div>
+            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+              No entry exists for today ({todayIso})
+            </div>
+            <div style={{ color: '#555' }}>
+              Create a blank day so you can log workouts even without a split.
+            </div>
+            {createDayError && (
+              <div style={{ color: '#c62828', marginTop: '6px', fontSize: '13px' }}>
+                {createDayError}
+              </div>
+            )}
+          </div>
+          <button
+            style={createDayButtonStyle}
+            onClick={createTodayDay}
+            disabled={creatingDay}
+          >
+            {creatingDay ? 'Creating…' : 'Create Today\'s Day'}
+          </button>
+        </div>
+      )}
       
       {loading && (
         <div style={loadingStyle}>
@@ -286,7 +424,6 @@ export default function App() {
           mainView
         )}
       </div>
-      <ChatBar />
     </>
   );
 }
