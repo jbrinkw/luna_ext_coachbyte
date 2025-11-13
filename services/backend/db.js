@@ -295,7 +295,17 @@ function generateUuid() {
 async function getAllDays() {
   const client = await pool.connect();
   try {
-    const result = await client.query('SELECT id, log_date, summary FROM daily_logs ORDER BY log_date DESC');
+    const result = await client.query(`
+      SELECT
+        dl.id,
+        dl.log_date,
+        dl.summary,
+        COALESCE(COUNT(cs.id), 0)::int as completed_sets_count
+      FROM daily_logs dl
+      LEFT JOIN completed_sets cs ON cs.log_id = dl.id
+      GROUP BY dl.id, dl.log_date, dl.summary
+      ORDER BY dl.log_date DESC
+    `);
     return result.rows;
   } finally {
     client.release();

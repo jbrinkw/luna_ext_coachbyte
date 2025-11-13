@@ -83,19 +83,46 @@ export default function App() {
     try {
       const response = await fetch(`${API_BASE}/days`);
       const data = await response.json();
-      
+
+      console.log('Fetched days from API:', data.length, 'days');
+      console.log('Today ISO:', todayIso);
+
+      // Filter to show only today and days with completed workouts
+      const filteredData = data.filter(day => {
+        if (!day?.log_date) return false;
+
+        // Extract date part for comparison
+        const dayDate = day.log_date.includes('T')
+          ? day.log_date.split('T')[0]
+          : day.log_date;
+
+        // Show if it's today
+        const isToday = dayDate === todayIso;
+
+        // Show if it has completed workouts
+        const hasCompleted = day.completed_sets_count && day.completed_sets_count > 0;
+
+        if (isToday || hasCompleted) {
+          console.log(`Showing day ${dayDate}: isToday=${isToday}, completed=${day.completed_sets_count || 0}`);
+        }
+
+        return isToday || hasCompleted;
+      });
+
+      console.log('Filtered to', filteredData.length, 'days to display');
+
       // Update days and track last updated time
       setDays(prevDays => {
-        const dataString = JSON.stringify(data);
+        const dataString = JSON.stringify(filteredData);
         const currentDataString = JSON.stringify(prevDays);
-        
+
         if (dataString !== currentDataString) {
           setLastUpdated(new Date());
-          return data;
+          return filteredData;
         }
         return prevDays;
       });
-      
+
       setLoading(false);
     } catch (err) {
       console.error('Error loading days:', err);
@@ -361,11 +388,11 @@ export default function App() {
         </div>
       )}
       
-      {!loading && days.length === 0 && (
+      {!loading && days.length === 0 && !shouldShowCreateToday && (
         <div style={emptyStateStyle}>
-          <h3>No workout days found</h3>
-          <p>Get started by loading some sample data:</p>
-          <p>Run <code style={codeStyle}>npm run load-sample</code> to load sample data.</p>
+          <h3>No workout history yet</h3>
+          <p>You'll see days here once you complete some workouts.</p>
+          <p>Create today's entry above to get started!</p>
         </div>
       )}
       
