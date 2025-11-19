@@ -93,7 +93,7 @@ export default function SplitPlanner({ onBack }) {
               <tr>
                 <th style={thStyle}>Exercise</th>
                 <th style={thStyle}>Reps</th>
-                <th style={thStyle}>Load</th>
+                <th style={thStyle}>Load (Relative)</th>
                 <th style={thStyle}>Rest</th>
                 <th style={thStyle}>Order</th>
                 <th style={thStyle}>Action</th>

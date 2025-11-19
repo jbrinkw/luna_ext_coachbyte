@@ -418,7 +418,7 @@ export default function DayDetail({ id, onBack, onDelete }) {
                   <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#333' }}>
                     {nextSet.relative ? (
                       <span>
-                        {nextSet.reps} reps @ {nextSet.originalLoad}% → {displayWeight(nextSet.calculatedLoad || nextSet.load)}
+                        {nextSet.reps} reps @ {Math.round(nextSet.originalLoad * 100)}% → {displayWeight(nextSet.calculatedLoad || nextSet.load)}
                       </span>
                     ) : (
                       <span>
@@ -560,7 +560,7 @@ export default function DayDetail({ id, onBack, onDelete }) {
                     />
                     {p.relative && (
                       <div style={{ fontSize: '10px', color: '#666', marginTop: '1px' }}>
-                        {p.load}% → {displayWeight(p.calculatedLoad || p.load)}
+                        {Math.round(p.load * 100)}% → {displayWeight(p.calculatedLoad || p.load)}
                       </div>
                     )}
                     {!p.relative && (

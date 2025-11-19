@@ -492,11 +492,11 @@ async function getDay(id) {
     const planWithCalculatedWeights = planResult.rows.map(row => {
       if (row.relative) {
         const rm = oneRMs[row.exercise.toLowerCase()];
-        const calculatedLoad = rm ? Math.round(rm * row.load / 100) : 0;
+        const calculatedLoad = rm ? Math.round(rm * row.load) : 0;
         return {
           ...row,
           calculatedLoad, // Store the calculated weight
-          originalLoad: row.load // Store the original percentage
+          originalLoad: row.load // Store the original percentage (as decimal)
         };
       }
       return {

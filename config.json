@@ -10,7 +10,7 @@
   "auto_update": false,
   "version": "2025-01-07",
   "enabled": true,
-  "source": "github:jbrinkw/luna_ext_coachbyte#reinstall-1762557526767",
+  "source": "github:jbrinkw/luna_ext_coachbyte#update-11-07-25",
   "ui": {
     "strip_prefix": false,
     "enforce_trailing_slash": true
